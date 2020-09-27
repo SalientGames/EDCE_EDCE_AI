@@ -1,0 +1,1352 @@
+###############################################################################
+#	SCRIPT FOR EDCE ENHANCED AI PLAYER
+#
+# ****************************************
+# ****************************************
+#	Start - Comment section
+#	Would this line work (double AND condition)?
+#	[SAI_ROE][BO][(A)(TYPE)(EQ)(CI)(PLY)(EQ)(MAN)(A)(CI)(PEFF)(GT)(80)][ME]
+#
+#	These three [SAI_ROE] are not needed or are they?
+#	It's already defined all "SAI_LAND"
+#	Game performs perfectly (with or without them) - Seems to give only limitation to the AI
+#	[SAI_ROE][AR][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+#	[SAI_ROE][AR][(A)(DMG)(GT)(0)][NA]
+#	[SAI_ROE][AR][(O)(DIS)(GT)(2)][NA]
+#
+#	Units and their "bizarre behavior" Test
+#	[SAI_ROE][AR][(A)(TYPE)(EQ)(IN)(DIS)(GT)(2)][ME]
+#	Test - On the hunt using other unit spotting
+#	The conditions include all units in game. The AI must know always what to do.
+#	Many AI units will have [GT] & [GE] over their intended usage.
+#
+#	This line while seems correct, as it stands doesn't work.
+#	The AI transport will manage to get it's self killed 100% fo the times
+#	SAI_ROE][TR][(O)(TYPE)(EQ)(BB)(TYPE)(EQ)(CR)(TYPE)(EQ)(SS)(TYPE)(EQ)(SU)(TYPE)(EQ)(DE)][EV]
+#	Better to clearly specify what to do with specific conditions. (this worked on old EDEE)
+#	(DIS)(LE) - (DIS)(EQ) - (DIS)(GT) or other???
+#
+#	The first unit in list Must be Land Attack unit (AR or IN) is it important?
+#
+#	SAI_UT_NONE (what is this)?
+#	[SAI_ROE][AR][(A)(DMG)(GT)(0)][NA] What is (DMG) Damage?
+#
+#	Does OF = Offshore platform conflicts with SAI_ROE (OF)?
+#	[SAI_ROE][AR][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+#	Does GE = General conflicts with?
+#	(A)(TYPE)(EQ)(GE)(DIS)
+#
+#	This one is what? Very important?
+#	[SAI_MISSION_REVIEW_FUDGE][3]
+#
+#	End - Comment section
+# ****************************************
+# ****************************************
+# EDCE - Reference Unit List - Tot 34 Units in game (morphing?)
+# ****************************************
+#	<AR>	ARMOR
+#	<IN>	INFANTRY
+#	<BO>	BOMBER
+#	<FI>	FIGHTER
+#	<AT>	Air Transport
+#	<HE>	Helicopter
+#	<LA>	Light Artillery
+#	<HA>	Heavy Artillery
+#	<AA>	Anti-Air
+#	<TK>	Truck
+#	<EN>	Engineer
+#	<SB>	Sea Bees
+#	<DE>	Destroyer
+#	<PB>	Patrol Boat
+#	<BB>	Battleship
+#	<CR>	Cruiser
+#	<AC>	Aircraft Carrier
+#	<TR>	Sea Transport
+#	<SU>	Surfaced Submarine
+#	<SS>	Submerged Submarine
+#	<SD>	Deep Submarine
+#	<SC>	Scout Satellite
+#	<AS>	Armed Satellite
+#	<GE>	General
+#	<PT>	Port Facility
+#	<FT>	FORT - Bunker
+#	<CI>	City
+#	<AB>	AIR_BASE
+#	<OF>	FACTORY or Offshore platform
+#	<SP>	Supply Unit Canister
+#	<SM>	Short Range missile
+#	<LM>	Long Range missile
+#	<SN>	Short Range Nuke missile
+#	<LN>	Long Range Nuke missile
+# ****************************************
+#
+#	Unit Type Lists: Units which will perform various functions
+#	Strategic Values: Minimum and maximums used in decision making
+#	Conditional Values: Values mapped to unit types to influence the 
+#				decision making process
+#	Rules Of Engagement: Rules for reacting to enemy units
+#
+#	Each data line starts with: [data topic][values][...]
+#
+#	format is [specifier][data][more data][...]
+#	
+#	ROE - Rules of Engagement
+#	These are a list of rules that are evaluated IN ORDER. If a rule is true, the 
+#	action is returned. If none of the conditions are met,
+#	the default action is returned
+#		(The default - default action is no action).
+#
+#		Conditions Codes
+#			LVL - level (string code value)
+#				(EQ and NE operators only apply)
+#				SB - sub
+#				GR - ground
+#				OF - overflight
+#				OB - orbital
+#				RE - reentry
+#			
+#			DIS - distance (numeric code value)
+#
+#			RNG - attributes (string code value)
+#			FRNG - distance vs. range firing range
+#
+#			HIT - value vs. current hits
+#
+#			TYPE - unit type (string code value)
+#				(EQ and NE operators only apply)
+#
+#			PLY - player type(string code value) 
+#				(EQ and NE operators only apply)
+#				NEUT - neutral
+#				MAN - human
+#				COMP - computer
+#
+#			PEFF - production efficiency
+#			
+#			HOST - unit is cargo (bool string code T/F, operator code ignored)
+#			UNIT - unit has cargo (bool string code T/F, operator code ignored)
+#
+#		Comparative Operators
+#			EQ	 equal
+#			NE	not equal
+#			LT	less than
+#			LE	less than or equal to
+#			GT	greater than
+#			GE	greater than or equal to
+#
+#		Actions
+#			NA - no action
+#			ME - move engage
+#			FE - fire engage
+#			EV - evade
+#
+#		And or Or Value
+#			A - and is used
+#			O - or is used
+#
+#		SAI_ROE - a rule of engagement
+#			ROE order Syntax for SAI_ROE:
+#			[<roe type>][<unit type>][(<And or Or Value>) <CONDITION SETS>][<Action>]
+#				Where CONDITONS SETS is any number of the following triplets
+#					(<condition code>)(<operator>)(<code value>)
+#
+#		SAI_ROE_PRI - priority setting for encountering a type
+#			syntax: [<roe type>][<unit type>][<sight type>][<priority value>]
+#
+#		SAI_ROE_DEF - default ROE when conditions don't apply
+#			syntax: [<roe type>][<unit type>][<action>]
+#
+# ****************************************
+# ****************************************
+#	Start
+# ****************************************
+# ****************************************
+#
+#	Exploration
+#	SAI_UT_AIR_EXPLORE - Air Units Used in exploration
+#	SAI_UT_LAND_EXPLORE - Land units used in exploration
+#	SAI_UT_GRND_EXPLORE - ground units used for exploration - both sea and land)
+#	SAI_UT_SEA_EXPLORE - sea units used in exploration
+#	SAI_NUM_LAND_UNITS_EXP - number of land units to explore per land mass
+#	SAI_NUM_SEA_SQ_PER_EXP - size of sea mass for each explorer
+#	SAI_NUM_LAND_UNITS_EXP_SIZE - size of land mass for additional explorer
+#	SAI_NUM_ADD_CITIES - city factor in adding air explorers
+#	Original:
+#	[SAI_UT_AIR_EXPLORE][FI][BO]
+#	[SAI_UT_LAND_EXPLORE][IN]
+#	[SAI_UT_GRND_EXPLORE][PB]
+#	[SAI_UT_SEA_EXPLORE][DE]
+#	[SAI_NUM_LAND_UNITS_EXP][1]
+#	[SAI_NUM_SEA_SQ_PER_EXP][1100]
+#	[SAI_NUM_LAND_UNITS_EXP_SIZE][100]
+#	[SAI_NUM_ADD_CITIES][6]
+
+[SAI_UT_AIR_EXPLORE][BO][FI]
+[SAI_UT_LAND_EXPLORE][IN][AR]
+[SAI_UT_GRND_EXPLORE][AR][DE][BO][FI]
+[SAI_UT_SEA_EXPLORE][CR][DE]
+[SAI_NUM_LAND_UNITS_EXP][3]
+[SAI_NUM_SEA_SQ_PER_EXP][1400]
+[SAI_NUM_LAND_UNITS_EXP_SIZE][120]
+[SAI_NUM_ADD_CITIES][6]
+
+#	General 'Onshore' and 'Offshore' Missions
+#	SAI_DIR_ASSAULT_PER - percentage of direct assult on target
+#	SAI_NUM_OFFSHORE_SUPP_REG - number offshore regular support
+#	SAI_NUM_OFFSHORE_SUPP_MAX - number of offshore maximum support
+#	SAI_NUM_NAVAL_SUPP_REG - number of navy support units
+#	SAI_NUM_NAVAL_SUPP_MAX - max number of navy support units
+#	SAI_LOSSES_RANGE - losses factor in deciding when to hold a transport for more units
+#	Original:
+#	[SAI_DIR_ASSAULT_PER][50]
+#	[SAI_NUM_OFFSHORE_SUPP_REG][2]
+#	[SAI_NUM_OFFSHORE_SUPP_MAX][4]
+#	[SAI_NUM_NAVAL_SUPP_REG][1]
+#	[SAI_NUM_NAVAL_SUPP_MAX][2]
+#	[SAI_LOSSES_RANGE][3]
+
+[SAI_DIR_ASSAULT_PER][50]
+[SAI_NUM_OFFSHORE_SUPP_REG][2]
+[SAI_NUM_OFFSHORE_SUPP_MAX][6]
+[SAI_NUM_NAVAL_SUPP_REG][3]
+[SAI_NUM_NAVAL_SUPP_MAX][6]
+[SAI_LOSSES_RANGE][2]
+
+#	Neutral Capture
+#	SAI_UT_NEUT_CAP_ATT - units which can capture a neutral city type
+#	SAI_UT_NEUT_CAP_ATT4TR - units which can be staged for neutral attacks
+#	SAI_UT_NEUT_CAP_TR - transports that can carry neutral attackers
+#	SAI_NUM_NEUTRAL_ATTACKERS - number of neutral attackers per mission
+#	SAI_NEUT_TRANSPORTS_REG - regular number of TR's used in a mission
+#	Original:
+#	[SAI_UT_NEUT_CAP_ATT][IN]
+#	[SAI_UT_NEUT_CAP_ATT4TR][IN]
+#	[SAI_UT_NEUT_CAP_TR][TR]
+#	[SAI_NUM_NEUTRAL_ATTACKERS[2]
+#	[SAI_NEUT_TRANSPORTS_REG][1]
+
+[SAI_UT_NEUT_CAP_ATT][IN][AR]
+[SAI_UT_NEUT_CAP_ATT4TR][AR][IN]
+[SAI_UT_NEUT_CAP_TR][TR]
+[SAI_NUM_NEUTRAL_ATTACKERS[2]
+[SAI_NEUT_TRANSPORTS_REG][1]
+
+#	Enemy Capture
+#	SAI_UT_ENEMY_CAP_TR - transports for enemy capture units
+#	SAI_UT_ENEMY_CAP_ATT - units which can perform an enemy capture
+#	SAI_UT_ENEMY_CAP_ATT4TR - enemy capture units that can be staged
+#	SAI_UT_ENEMY_CAP_AIR_SUPPORT - air support units for enemy captures
+#	SAI_UT_ENEMY_CAP_LAND_SUPPORT - land support units for enemy captures
+#	SAI_UT_ENEMY_CAP_SEA_SUPPORT - sea support units for enemy captures
+#	SAI_NUM_ENEMY_CAP_ATTACKERS - number of enemy capture attackers
+#	SAI_OFFSHORE_ENEMY_CAP_LIMIT - offshore enemy capture mission limit
+#	SAI_ENEMY_TRANSPORTS_MAX - max number of trs used in a mission
+#	SAI_ENEMY_TRANSPORTS_REG - regular number of TR's used in a mission
+#	Original:
+#	[SAI_UT_ENEMY_CAP_TR][TR][AT]
+#	[SAI_UT_ENEMY_CAP_ATT][IN][AR]
+#	[SAI_UT_ENEMY_CAP_ATT4TR][IN][AR]
+#	[SAI_UT_ENEMY_CAP_AIR_SUPPORT][FI][BO]
+#	[SAI_UT_ENEMY_CAP_LAND_SUPPORT][LA]
+#	[SAI_UT_ENEMY_CAP_SEA_SUPPORT][DE][BB][CR]
+#	[SAI_NUM_ENEMY_CAP_ATTACKERS][2]
+#	[SAI_ENEMY_TRANSPORTS_MAX][2]
+#	[SAI_ENEMY_TRANSPORTS_REG][1]
+
+[SAI_UT_ENEMY_CAP_TR][TR]
+[SAI_UT_ENEMY_CAP_ATT][AR][IN]
+[SAI_UT_ENEMY_CAP_ATT4TR][AR][IN]
+[SAI_UT_ENEMY_CAP_AIR_SUPPORT][BO][FI]
+[SAI_UT_ENEMY_CAP_LAND_SUPPORT][BO][FI][LA]
+[SAI_UT_ENEMY_CAP_SEA_SUPPORT][CR][BB][DE]
+[SAI_NUM_ENEMY_CAP_ATTACKERS][2]
+[SAI_ENEMY_TRANSPORTS_MAX][2]
+[SAI_ENEMY_TRANSPORTS_REG][1]
+
+#	Production Drain Considerations
+#	SAI_UT_PROD_HALT - unit types whose production can be cancelled in 
+#				the name of the drain
+#	SAI_UT_UNIT_DISBAND - unit types which can be disbanded in the name
+#				of the drain
+#	SAI_DRAIN_LIMIT - drain limiter used in various calculations
+#	SAI_PRESERVE_PROD - settings where production cannot be changed if 
+#			the number of turns under value
+#	SAI_PM_PROD_TOLERANCE - drain tolerance before no production is allowed
+#	SAI_PM_IDLE_TOLERANCE - used for disbanding units when over drain
+#	SAI_PM_EXTRA_PROD_TOLERANCE - used for determining when 'pares' can be produced
+#	SAI_SPARE_TYPES - ordered spare types list for production
+#
+#	[SAI_UT_PROD_HALT][IN]
+#	[SAI_UT_UNIT_DISBAND][IN]
+#	[SAI_DRAIN_LIMIT][5]
+#	[SAI_PRESERVE_PROD][(TR)(20)][(AT)(10)][(BB)(20)][(CR)(15)][(DE)(10)][(SU)(10)][(AC)(25)][(SM)(25)][(LM)(35)][(SN)(25)]
+#	[SAI_PM_PROD_TOLERANCE][-10]
+#	[SAI_PM_IDLE_TOLERANCE][-100]
+#	[SAI_PM_EXTRA_PROD_TOLERANCE][-10]
+#	[SAI_SPARE_TYPES]
+
+[SAI_UT_PROD_HALT][IN][DE][LA][HA][FI]
+[SAI_UT_UNIT_DISBAND][IN][DE][LA][HA][PB][FI]
+[SAI_DRAIN_LIMIT][5]
+[SAI_PRESERVE_PROD][(TR)(20)][(BB)(20)][(CR)(15)][(SU)(10)][(AC)(25)][(AS)(35)][(SC)(35)][(SB)(15)][(EN)(10)]
+[SAI_PM_PROD_TOLERANCE][-10]
+[SAI_PM_IDLE_TOLERANCE][-95]
+[SAI_PM_EXTRA_PROD_TOLERANCE][-10]
+
+[SAI_SPARE_TYPES][SP][BB][TR][CR][PB][BO][SP][AR][IN][DE][AS][BB][SU][SB][FI][BO][EN][HA][CR][BO][AA][BB][SB][AR][TR][LA][FI][DE][SU][AS][AR][EN][BO][CR][SB][BB][SU][BO][AR][TR][FI][BO][BB][EN][DE][SB][AR][IN][SP][SU][AR][AS][FI][EN][BB][AR][TR][AR][SB][EN][AR][AR][CR][AS][BB][AR][IN][AR]
+
+#	Early Exploration
+#		SAI_UT_EARLY_CQ - attacking units to be produced
+#		SAI_UT_EARLY_TR - early transport types
+#		SAI_UT_EARLY_EX - early explorer types
+#		SAI_PRI_EXP_CITY_CRITERIA - number of cities visible before initial land mass explore ends
+#		SAI_PRI_EXP_LAND_CRITERIA - number of initial land mass squares visible before 
+#		initial land mass exploration ends
+#	Original:
+#	[SAI_UT_EARLY_CQ][IN]
+#	[SAI_UT_EARLY_TR][TR][AT]
+#	[SAI_UT_EARLY_EX][BO]
+#	[SAI_PRI_EXP_CITY_CRITERIA][3]
+#	[SAI_PRI_EXP_LAND_CRITERIA][600]
+
+[SAI_UT_EARLY_CQ][IN][AR]
+[SAI_UT_EARLY_TR][TR]
+[SAI_UT_EARLY_EX][AR][BO][CR][DE][FI][SS]
+[SAI_PRI_EXP_CITY_CRITERIA][4]
+[SAI_PRI_EXP_LAND_CRITERIA][600]
+
+#	Various Unit Roles
+#		SAI_UT_SATELLITE - units to perform satellite roles
+#		SAI_UT_ROCKET - units to perform missile roles
+#		SAI_UT_NUKE - units to perform nuke roles
+#		SAI_UT_ENGINEER - units to perform engineering roles
+#		SAI_UT_SUPPLY - units to perform supply roles
+#		SAI_UT_RES_FAC - units to perform resource roles
+#		SAI_UT_PORTS - units to perform port roles
+#		SAI_UT_BASE - units to perform base roles
+#		SAI_UT_FORT - units to perform fort roles
+#	Original:
+#	[SAI_UT_SATELLITE][SC][AS]
+#	[SAI_UT_ROCKET][SM][LM]
+#	[SAI_UT_NUKE][SN][LN]
+#	[SAI_UT_ENGINEER][SB][EN]
+#	[SAI_UT_SUPPLY][SP]
+#	[SAI_UT_RES_FAC][OF]
+#	[SAI_UT_PORTS][PT]
+#	[SAI_UT_BASE][AB]
+#	[SAI_UT_FORT][FT]
+
+[SAI_UT_SATELLITE][SC][AS]
+#	[SAI_UT_ROCKET][SM][LM]
+#	[SAI_UT_NUKE][SN][LN]
+[SAI_UT_ENGINEER][SB][EN]
+[SAI_UT_SUPPLY][SP]
+[SAI_UT_RES_FAC][OF]
+[SAI_UT_PORTS][PT]
+[SAI_UT_BASE][AB]
+[SAI_UT_FORT][FT]
+
+#	Carrier Groups
+#		SAI_UT_CARRIER - units to perform carrier roles
+#		SAI_UT_CARRIER_GROUP - units to be part of a carrier group
+#		SAI_UT_CARRIER_ESCORTS - units to perform escorting duties for carriers
+#		SAI_CARRIER_PORTAGE  - portage amount a carrier wants to carry
+
+[SAI_UT_CARRIER][AC]
+[SAI_UT_CARRIER_GROUP][FI]
+[SAI_UT_CARRIER_ESCORTS][CR][BB][TR]
+[SAI_CARRIER_PORTAGE][6]
+
+#	Subs
+#		SAI_UT_SUBS - sub units
+#		SAI_UT_SUB_SURFACE surface sub units
+#		SAI_UT_SUB_SUBMERGED - submerged sub units
+#		SAI_UT_SUB_DEEP - deep sub units
+#		SAI_UT_SUB_TARGETS - sub targets
+#		SAI_SUBMERGE_TOLERANCE - range near sighting to submerge
+#		SAI_SUB_LURK_RANGE - lurk around sighting range
+#		SAI_SUB_STALK_COUNT - enemy notice range
+#		SAI_SUB_EVADE_COUNT - number of turns to hide when evading
+#		SAI_SUB_SURFACE_RANGE - range before a sub surfaces heading home
+
+[SAI_UT_SUBS][SU][SS][SD]
+[SAI_UT_SUB_SURFACE][SU]
+[SAI_UT_SUB_SUBMERGED][SS]
+[SAI_UT_SUB_DEEP][SD]
+[SAI_UT_SUB_TARGETS][TR][AC][BB][CR]
+[SAI_SUBMERGE_TOLERANCE][2]
+[SAI_SUB_LURK_RANGE][6]
+[SAI_SUB_STALK_COUNT][6]
+[SAI_SUB_EVADE_COUNT][4]
+[SAI_SUB_SURFACE_RANGE][4]
+
+#	Placement and Buypoint selection
+#	SAI_UT_SELECTION - what units to select on a map
+#	SAI_UT_PLACEMENT - where units can be placed
+#	SAI_BUYPOINT_TYPES - buypoint type buying list
+
+[SAI_UT_SELECTION][CI]
+[SAI_UT_PLACEMENT][CI]
+[SAI_BUYPOINT_TYPES][BB][TR][CR][LA][AR][IN][AT][FI][HA][AR][FI][IN][LA][AT][FI][FI][FI][AR][IN][LA][AR][IN][LA][AR][IN][AT][FI][FI][FI][LA][AR]
+
+#	Misc Missions
+#		SAI_NEXT_CAP_PROD - units to produce in a capital
+#		SAI_NEXT_IMP_PROD - units to produce in an important city
+#		SAI_UT_CITY_RETAKE - units which can retake cities (when there are none owned)
+#		SAI_MAX_BASE_RANGE - maximum range from a city before a Air base is built
+#		SAI_MIN_BASE_RANGE - minimum range from a city before a Air base is built
+#	Original:
+#	[SAI_NEXT_CAP_PROD][LA][AR][FI][HA]
+#	[SAI_NEXT_IMP_PROD][LA][AR][FI][HA]
+#	[SAI_UT_CITY_RETAKE][IN][AR][EN]
+#	[SAI_MAX_BASE_RANGE][18]
+#	[SAI_MIN_BASE_RANGE][8]
+
+[SAI_NEXT_CAP_PROD][AR][BO][IN][TR][FI][CR][BB]
+[SAI_NEXT_IMP_PROD][BO][AR][IN][TR][FI][CR][BB]
+[SAI_UT_CITY_RETAKE][AR][IN][EN]
+[SAI_MAX_BASE_RANGE][18]
+[SAI_MIN_BASE_RANGE][8]
+
+#	Misc Unit
+#		SAI_EVADE_DIST - distance to try to run if evading
+#		SAI_NEEDS_REPAIR - hits below which a unit needs repair
+
+[SAI_EVADE_DIST][(TR)(4)][(SD)(4)][(SU)(4)][(SS)(4)][(BO)(2)][(AC)(4)]
+[SAI_NEEDS_REPAIR][(SS)(2)][(SU)(2)][(BB)(9)][(CR)(6)][(TR)(3)][(AC)(6)][(AR)(2)][(DE)(3)]
+
+#	Reactions
+#	SAI_THREAT_TOLERANCE - range at which a threat is acted on
+#	SAI_EVAL_START - counter to re-eval missions
+#	SAI_THREAT_EVAL_DISTANCE - max distance at which a threat can be acted upon
+#	SAI_THREAT_AGE - max sighting age that will spark a reaction
+#	SAI_MISSION_REVIEW_FUDGE - factor that helps AI determine how many missions to 
+#					review, multiplied times his number of cities
+#	Original:
+#	[SAI_THREAT_TOLERANCE][3]
+#	[SAI_EVAL_START][2]
+#	[SAI_THREAT_EVAL_DISTANCE][6]
+#	[SAI_THREAT_AGE][1]
+#	[SAI_MISSION_REVIEW_FUDGE][3]
+#	[SAI_THREAT_TOLERANCE][10]
+#	[SAI_EVAL_START][2]
+#	[SAI_THREAT_EVAL_DISTANCE][32]
+#	[SAI_THREAT_AGE][1]
+#	[SAI_MISSION_REVIEW_FUDGE][3]
+
+[SAI_THREAT_TOLERANCE][12]
+[SAI_EVAL_START][2]
+[SAI_THREAT_EVAL_DISTANCE][24]
+[SAI_THREAT_AGE][1]
+[SAI_MISSION_REVIEW_FUDGE][3]
+
+# ****************************************
+# ****************************************
+#
+#	START - ROE:	RULES OF ENGAGEMENT
+#
+# ****************************************
+# ****************************************
+#
+# ****************************************
+#	<AR>	ARMOR
+# ****************************************
+[SAI_ROE][AR][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][AR][(A)(DMG)(GT)(0)][NA]
+[SAI_ROE][AR][(O)(DIS)(GT)(2)][NA]
+#
+#	Fighting land units
+#
+[SAI_ROE][AR][(A)(TYPE)(EQ)(AA)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(AR)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(IN)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(LA)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(GE)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][ME]
+#
+#	Fighting Air units
+#
+[SAI_ROE][AR][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][NA]
+#
+#	Transport units
+#
+[SAI_ROE][AR][(A)(TYPE)(EQ)(TR)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(AT)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(HE)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(TK)(DIS)(GE)(1)][ME]
+#
+#	Surface Ship units
+#
+[SAI_ROE][AR][(A)(TYPE)(EQ)(PB)(DIS)(LE)(2)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(PB)(DIS)(GT)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(DE)(DIS)(LE)(2)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(DE)(DIS)(GT)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(CR)(DIS)(LE)(2)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(CR)(DIS)(GT)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(AC)(DIS)(LE)(2)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(AC)(DIS)(GT)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(BB)(DIS)(LE)(2)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(BB)(DIS)(GT)(2)][EV]
+#
+#	Subs
+#
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SU)(DIS)(LE)(2)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SU)(DIS)(GT)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SS)(DIS)(GT)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SD)(DIS)(GT)(2)][NA]
+#
+#	Land & Sea installations
+#
+[SAI_ROE][AR][(A)(TYPE)(EQ)(HA)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(PT)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(FT)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(OF)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(AB)(DIS)(GE)(1)][ME]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SP)(DIS)(GE)(1)][ME]
+#
+#	Space & Rockets
+#
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SC)(DIS)(LE)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(AS)(DIS)(LE)(2)][NA]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SM)(DIS)(LE)(2)][EV]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(LM)(DIS)(LE)(2)][EV]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(SN)(DIS)(LE)(2)][EV]
+[SAI_ROE][AR][(A)(TYPE)(EQ)(LN)(DIS)(LE)(2)][EV]
+
+[SAI_ROE_PRI][AR][TR][99]
+[SAI_ROE_PRI][AR][AT][90]
+[SAI_ROE_PRI][AR][HE][90]
+[SAI_ROE_PRI][AR][TK][90]
+[SAI_ROE_PRI][AR][GE][80]
+[SAI_ROE_PRI][AR][OF][80]
+[SAI_ROE_PRI][AR][IN][60]
+[SAI_ROE_PRI][AR][AR][60]
+[SAI_ROE_PRI][AR][SB][50]
+[SAI_ROE_PRI][AR][EN][40]
+[SAI_ROE_PRI][AR][CI][10]
+[SAI_ROE_DEF][AR][ME]
+
+# ****************************************
+#	<IN>	INFANTRY
+# ****************************************
+[SAI_ROE][IN][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][IN][(O)(DIS)(GT)(1)][NA]
+#
+#	Fighting land units
+#
+[SAI_ROE][IN][(A)(TYPE)(EQ)(AA)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(AR)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(IN)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(LA)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(GE)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][ME]
+#
+#	Fighting Air units
+#
+[SAI_ROE][IN][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][NA]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][NA]
+#
+#	Transport units
+#
+[SAI_ROE][IN][(A)(TYPE)(EQ)(TR)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(AT)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(HE)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(TK)(DIS)(GE)(1)][ME]
+#
+#	Surface Ship units
+#
+[SAI_ROE][IN][(A)(TYPE)(EQ)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(DE)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(CR)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(AC)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(BB)(DIS)(GE)(1)][ME]
+#
+#	Subs
+#
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SU)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SS)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SD)(DIS)(GE)(1)][NA]
+#
+#	Land & Sea installations
+#
+[SAI_ROE][IN][(A)(TYPE)(EQ)(HA)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(PT)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(PT)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(FT)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(OF)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(AB)(DIS)(GE)(1)][ME]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SP)(DIS)(GE)(1)][ME]
+#
+#	Space & Rockets
+#
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SC)(DIS)(GE)(1)][NA]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(AS)(DIS)(GE)(1)][NA]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SM)(DIS)(GE)(1)][EV]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(LM)(DIS)(GE)(1)][EV]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(SN)(DIS)(GE)(1)][EV]
+[SAI_ROE][IN][(A)(TYPE)(EQ)(LN)(DIS)(GE)(1)][EV]
+
+[SAI_ROE_PRI][IN][TR][90]
+[SAI_ROE_PRI][IN][AT][90]
+[SAI_ROE_PRI][IN][HE][90]
+[SAI_ROE_PRI][IN][TK][90]
+[SAI_ROE_PRI][IN][GE][80]
+[SAI_ROE_PRI][IN][OF][80]
+[SAI_ROE_PRI][IN][AR][60]
+[SAI_ROE_PRI][IN][IN][60]
+[SAI_ROE_PRI][IN][SB][50]
+[SAI_ROE_PRI][IN][EN][40]
+[SAI_ROE_PRI][IN][CI][10]
+[SAI_ROE_DEF][IN][ME]
+
+#////////////////////////////////////////////////
+#		General
+#////////////////////////////////////////////////
+[SAI_ROE][GE][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][GE][(A)(HOST)(EQ)(T)][NA]
+[SAI_ROE_DEF][GE][EV]
+#////////////////////////////////////////////////
+
+# ****************************************
+#	<FI>	FIGHTER
+# ****************************************
+[SAI_ROE][FI][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(CI)][NA]
+#
+#	Fighting land units
+# ****************************************
+[SAI_ROE][FI][(A)(TYPE)(EQ)(AA)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(AR)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(IN)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(HA)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(LA)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(GE)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][ME]
+#
+#	Fighting Air units
+# ****************************************
+[SAI_ROE][FI][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][ME]
+#
+#	Transport units
+# ****************************************
+[SAI_ROE][FI][(A)(TYPE)(EQ)(TR)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(AT)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(HE)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(TK)(DIS)(GE)(1)][ME]
+#
+#	Surface Ship units
+# ****************************************
+[SAI_ROE][FI][(A)(TYPE)(EQ)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(DE)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(AC)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(CR)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(BB)(DIS)(GE)(1)][ME]
+#
+#	Subs
+# ***************************************
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SU)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SS)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SD)(DIS)(GE)(1)][NA]
+#
+#	Land & Sea installations
+# ****************************************
+[SAI_ROE][FI][(A)(TYPE)(EQ)(HA)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(PT)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(OF)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(AB)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SP)(DIS)(GE)(1)][ME]
+#
+#	Space & Rockets
+# ***************************************
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SC)(DIS)(GE)(2)][NA]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(AS)(DIS)(GE)(2)][NA]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SM)(DIS)(GE)(2)][EV]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(LM)(DIS)(GE)(2)][EV]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(SN)(DIS)(GE)(2)][EV]
+[SAI_ROE][FI][(A)(TYPE)(EQ)(LN)(DIS)(GE)(2)][EV]
+
+[SAI_ROE_PRI][FI][TR][90]
+[SAI_ROE_PRI][FI][AT][90]
+[SAI_ROE_PRI][FI][HE][90]
+[SAI_ROE_PRI][FI][TK][90]
+[SAI_ROE_PRI][FI][GE][80]
+[SAI_ROE_PRI][FI][OF][80]
+[SAI_ROE_PRI][FI][IN][70]
+[SAI_ROE_PRI][FI][BO][60]
+[SAI_ROE_PRI][FI][FI][60]
+[SAI_ROE_PRI][FI][SB][50]
+[SAI_ROE_PRI][FI][EN][40]
+[SAI_ROE_DEF][FI][ME]
+
+# ****************************************
+#	<BO>	BOMBER
+# ****************************************
+[SAI_ROE][BO][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(CI)(PLY)(EQ)(NEUT)][NA]
+#
+#	Fighting land units
+# ****************************************
+[SAI_ROE][BO][(A)(TYPE)(EQ)(AA)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(AR)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(IN)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(HA)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(LA)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(GE)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][ME]
+#
+#	Fighting Air units
+# ****************************************
+[SAI_ROE][BO][(A)(TYPE)(EQ)(FI)(DIS)(GE)(2)][NA]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(FI)(DIS)(LE)(2)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(BO)(DIS)(GE)(2)][NA]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(BO)(DIS)(LE)(2)][ME]
+#
+#	Transport units
+# ****************************************
+[SAI_ROE][BO][(A)(TYPE)(EQ)(TR)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(AT)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(HE)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(TK)(DIS)(GE)(1)][ME]
+#
+#	Surface Ship units
+# ****************************************
+[SAI_ROE][BO][(A)(TYPE)(EQ)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(DE)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(AC)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(CR)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(BB)(DIS)(GE)(1)][ME]
+#
+#	Subs
+# ***************************************
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SU)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SS)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SD)(DIS)(GE)(1)][NA]
+#
+#	Land & Sea installations
+# ****************************************
+[SAI_ROE][BO][(A)(TYPE)(EQ)(PT)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(OF)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(AB)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SP)(DIS)(GE)(1)][ME]
+#
+#	Space & Rockets
+# ***************************************
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SC)(DIS)(GE)(1)][NA]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(AS)(DIS)(GE)(1)][NA]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SM)(DIS)(GE)(1)][EV]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(LM)(DIS)(GE)(1)][EV]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(SN)(DIS)(GE)(1)][EV]
+[SAI_ROE][BO][(A)(TYPE)(EQ)(LN)(DIS)(GE)(1)][EV]
+
+[SAI_ROE_PRI][BO][TR][90]
+[SAI_ROE_PRI][BO][AT][90]
+[SAI_ROE_PRI][BO][HE][90]
+[SAI_ROE_PRI][BO][TK][90]
+[SAI_ROE_PRI][BO][GE][80]
+[SAI_ROE_PRI][BO][OF][80]
+[SAI_ROE_PRI][BO][IN][60]
+[SAI_ROE_PRI][BO][BO][60]
+[SAI_ROE_PRI][BO][SB][50]
+[SAI_ROE_PRI][BO][EN][40]
+[SAI_ROE_DEF][BO][ME]
+
+#////////////////////////////////////////////////
+#		Air Transport
+#////////////////////////////////////////////////
+[SAI_ROE][AT][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][AT][(A)(TYPE)(EQ)(AA)(DIS)(LE)(2)][EV]
+[SAI_ROE][AT][(A)(TYPE)(EQ)(FI)(DIS)(LE)(3))[EV]
+#////////////////////////////////////////////////
+
+#////////////////////////////////////////////////
+#		Helicopter
+#////////////////////////////////////////////////
+[SAI_ROE][HE][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][HE][(O)(TYPE)(EQ)(CI)(TYPE)(EQ)(FT)][NA]
+[SAI_ROE][HE][(A)(TYPE)(EQ)(AA)(DIS)(LE)(2)][EV]
+[SAI_ROE][HE][(A)(TYPE)(EQ)(FI)(DIS)(LE)(3))[EV]
+[SAI_ROE][HE][(O)(UNIT)(EQ)(T)(TYPE)(EQ)(BB)(TYPE)(EQ)(CR)(TYPE)(EQ)(DE)][NA]
+[SAI_ROE_DEF][HE][ME]
+#////////////////////////////////////////////////
+
+#////////////////////////////////////////////////
+#		Light Artillery
+#////////////////////////////////////////////////
+[SAI_ROE][LA][(A)(LVL)(EQ)(GR)(RNG)(LE)(FRNG)(PLY)(NE)(NEUT)][FE]
+
+#////////////////////////////////////////////////
+#		Heavy Artillery
+#////////////////////////////////////////////////
+[SAI_ROE][HA][(A)(LVL)(EQ)(GR)(RNG)(LE)(FRNG)(PLY)(NE)(NEUT)][FE]
+
+#////////////////////////////////////////////////
+#		Anti-Air
+#////////////////////////////////////////////////
+[SAI_ROE][AA][(A)(LVL)(EQ)(RE)][FE]
+[SAI_ROE][AA][(O)(TYPE)(EQ)(FI)(TYPE)(EQ)(BO)(TYPE)(EQ)(AT)][FE]
+[SAI_ROE][AA][(A)(HOST)(EQ)(T)][NA]
+[SAI_ROE][AA][(A)(TYPE)(EQ)(IN)(DIS)(EQ)(1)][EV]
+[SAI_ROE][AA][(A)(TYPE)(EQ)(AR)(DIS)(LE)(2)][EV]
+#////////////////////////////////////////////////
+
+#////////////////////////////////////////////////
+#		Truck
+#////////////////////////////////////////////////
+[SAI_ROE][TK][(A)(HOST)(EQ)(T)][NA]
+[SAI_ROE][TK][(A)(TYPE)(EQ)(CI)][NA]
+[SAI_ROE][TK][(A)(DIS)(GT)(1)][NA]
+[SAI_ROE][TK][(O)(TYPE)(EQ)(CI)(TYPE)(EQ)(FT)][NA]
+[SAI_ROE][TK][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE_DEF][TK][EV]
+#////////////////////////////////////////////////
+
+#////////////////////////////////////////////////
+#		Engineer
+#////////////////////////////////////////////////
+[SAI_ROE][EN][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][EN][(A)(TYPE)(EQ)(CI)][NA]
+[SAI_ROE][EN][(A)(DIS)(GT)(1)][NA]
+[SAI_ROE][EN][(A)(HOST)(EQ)(T)][NA]
+[SAI_ROE][EN][(A)(TYPE)(EQ)(IN)(DIS)(LE)(1)][EV]
+[SAI_ROE][EN][(A)(TYPE)(EQ)(AR)(DIS)(LE)(2)][EV]
+[SAI_ROE][EN][(A)(TYPE)(EQ)(GE)(DIS)(LE)(2)][ME]
+[SAI_ROE][EN][(A)(TYPE)(EQ)(BB)(DIS)(LE)(1)][EV]
+[SAI_ROE][EN][(A)(TYPE)(EQ)(CR)(DIS)(LE)(1)][EV]
+[SAI_ROE][EN][(O)(TYPE)(EQ)(FI)(TYPE)(EQ)(BO)(TYPE)(EQ)(HE)][NA]
+[SAI_ROE_DEF][EN][ME]
+#////////////////////////////////////////////////
+
+#////////////////////////////////////////////////
+#		Sea Bees
+#////////////////////////////////////////////////
+[SAI_ROE][SB][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][SB][(A)(TYPE)(EQ)(CI)][NA]
+[SAI_ROE][SB][(A)(DIS)(GT)(1)][NA]
+[SAI_ROE][SB][(A)(HOST)(EQ)(T)][NA]
+[SAI_ROE][SB][(A)(TYPE)(EQ)(IN)(DIS)(LE)(1)][EV]
+[SAI_ROE][SB][(A)(TYPE)(EQ)(AR)(DIS)(LE)(2)][EV]
+[SAI_ROE][SB][(A)(TYPE)(EQ)(GE)(DIS)(LE)(2)][ME]
+[SAI_ROE][SB][(A)(TYPE)(EQ)(BB)(DIS)(LE)(1)][EV]
+[SAI_ROE][SB][(A)(TYPE)(EQ)(CR)(DIS)(LE)(1)][EV]
+[SAI_ROE][SB][(A)(TYPE)(EQ)(DE)(DIS)(LE)(1)][EV]
+[SAI_ROE][SB][(O)(TYPE)(EQ)(FI)(TYPE)(EQ)(BO)(TYPE)(EQ)(HE)][NA]
+[SAI_ROE_DEF][SB][ME]
+#////////////////////////////////////////////////
+
+# ****************************************
+#	<DE>	Destroyer
+# ****************************************
+[SAI_ROE][DE][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)(LVL)(NE)(SB)][NA]
+[SAI_ROE][DE][(A)(DMG)(GT)(1)][NA]
+[SAI_ROE][DE][(O)(TYPE)(EQ)(CI)(TYPE)(EQ)(FT)][NA]
+#
+#	Fighting land units
+#
+[SAI_ROE][DE][(A)(TYPE)(EQ)(AA)(DIS)(GE)(1)][EV]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(AR)(DIS)(GE)(1)][EV]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(IN)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(LA)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(GE)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][ME]
+#
+#	Fighting Air units
+#
+[SAI_ROE][DE][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][NA]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][NA]
+#
+#	Transport units
+#
+[SAI_ROE][DE][(A)(TYPE)(EQ)(TR)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(AT)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(HE)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(TK)(DIS)(GE)(1)][NA]
+#
+#	Surface Ship units
+#
+[SAI_ROE][DE][(A)(TYPE)(EQ)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(DE)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(CR)(DIS)(GE)(1)][EV]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(AC)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(BB)(DIS)(GE)(1)][EV]
+#
+#	Subs
+#
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SU)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SU)(DIS)(GE)(1)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SS)(DIS)(GE)(1)][NA]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SD)(DIS)(GE)(1)][NA]
+#
+#	Land & Sea installations
+#
+[SAI_ROE][DE][(A)(TYPE)(EQ)(HA)(DIS)(GE)(2)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(PT)(DIS)(GE)(2)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(FT)(DIS)(GE)(2)][NA]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(AB)(DIS)(GE)(2)][ME]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SP)(DIS)(GE)(2)][ME]
+#
+#	Space & Rockets
+#
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SC)(DIS)(GE)(1)][NA]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(AS)(DIS)(GE)(1)][NA]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SM)(DIS)(GE)(1)][EV]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(LM)(DIS)(GE)(1)][EV]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(SN)(DIS)(GE)(1)][EV]
+[SAI_ROE][DE][(A)(TYPE)(EQ)(LN)(DIS)(GE)(1)][EV]
+
+[SAI_ROE_PRI][DE][TR][99]
+[SAI_ROE_PRI][DE][AT][90]
+[SAI_ROE_PRI][DE][HE][90]
+[SAI_ROE_PRI][DE][TK][90]
+[SAI_ROE_PRI][DE][OF][80]
+[SAI_ROE_PRI][DE][SU][70]
+[SAI_ROE_PRI][DE][SS][70]
+[SAI_ROE_PRI][DE][PF][60]
+[SAI_ROE_PRI][DE][GE][50]
+[SAI_ROE_PRI][DE][SB][50]
+[SAI_ROE_PRI][DE][EN][40]
+
+[SAI_ROE_DEF][DE][ME]
+
+#////////////////////////////////////////////////
+#		Patrol Boat
+#////////////////////////////////////////////////
+[SAI_ROE][PB][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)(LVL)(NE)(SB)][NA]
+[SAI_ROE][PB][(O)(TYPE)(EQ)(CI)(TYPE)(EQ)(FT)][NA]
+[SAI_ROE][PB][(O)(TYPE)(EQ)(BB)(TYPE)(EQ)(CR)(TYPE)(EQ)(BO)(TYPE)(EQ)(FI)][NA]
+[SAI_ROE_DEF][PB][ME]
+#////////////////////////////////////////////////
+
+# ****************************************
+#	<BB>	Battleship
+# ****************************************
+[SAI_ROE][BB][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][BB][(A)(DMG)(GT)(5)][NA]
+[SAI_ROE][BB][(O)(TYPE)(EQ)(CI)][NA]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(CI)(PLY)(EQ)(MAN)][FE]
+#
+#	Fighting land units
+# ****************************************
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AA)(DIS)(LE)(1)][EV]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AA)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AR)(DIS)(LE)(1)][EV]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AR)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(IN)(DIS)(LE)(1)][EV]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(IN)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(HA)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(HA)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(LA)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(LA)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(GE)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(GE)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][FE]
+#
+#	Fighting Air units
+# ****************************************
+[SAI_ROE][BB][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][FE]
+#
+#	Transport units
+# ****************************************
+[SAI_ROE][BB][(A)(TYPE)(EQ)(TR)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(TR)(DIS)(GE)(3)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AT)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AT)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(HE)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(HE)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(TK)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(TK)(DIS)(GT)(2)][FE]
+#
+#	Surface Ship units
+# ****************************************
+[SAI_ROE][BB][(A)(TYPE)(EQ)(PB)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(PB)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(DE)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(DE)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AC)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AC)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(CR)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(CR)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(BB)(DIS)(LE)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(BB)(DIS)(GT)(2)][EV]
+#
+#	Subs
+# ***************************************
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SU)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SU)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SS)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SS)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SD)(DIS)(LE)(2)][NA]
+#
+#	Land & Sea installations
+# ****************************************
+[SAI_ROE][BB][(A)(TYPE)(EQ)(PT)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(PT)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(OF)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(OF)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(AB)(PB)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(AB)(PB)(DIS)(GT)(2)][FE]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SP)(DIS)(LE)(2)][ME]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SP)(DIS)(GT)(2)][FE]
+#
+#	Space & Rockets
+# ***************************************
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SC)(DIS)(LE)(2)][NA]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(AS)(DIS)(LE)(2)][NA]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SM)(DIS)(LE)(2)][EV]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(LM)(DIS)(LE)(2)][EV]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(SN)(DIS)(LE)(2)][EV]
+[SAI_ROE][BB][(A)(TYPE)(EQ)(LN)(DIS)(LE)(2)][EV]
+
+[SAI_ROE_PRI][BB][TR][99]
+[SAI_ROE_PRI][BB][AT][90]
+[SAI_ROE_PRI][BB][HE][90]
+[SAI_ROE_PRI][BB][TK][90]
+[SAI_ROE_PRI][BB][GE][80]
+[SAI_ROE_PRI][BB][OF][80]
+[SAI_ROE_PRI][BB][SU][70]
+[SAI_ROE_PRI][BB][SS][70]
+[SAI_ROE_PRI][BB][SB][60]
+[SAI_ROE_PRI][BB][EN][60]
+[SAI_ROE_PRI][BB][AR][50]
+[SAI_ROE_PRI][BB][IN][50]
+[SAI_ROE_PRI][BB][BB][10]
+
+[SAI_ROE_DEF][BB][FE]
+
+# ****************************************
+#	<CR>	CRUISER
+# ****************************************
+[SAI_ROE][CR][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][CR][(A)(DMG)(GT)(3)][NA]
+[SAI_ROE][CR][(O)(TYPE)(EQ)(CI)][NA]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(CI)(PLY)(EQ)(MAN)][FE]
+#
+#	Fighting land units
+# ****************************************
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AA)(DIS)(LE)(1)][EV]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AA)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AR)(DIS)(LE)(1)][EV]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AR)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(IN)(DIS)(LE)(1)][EV]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(IN)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(HA)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(HA)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(LA)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(LA)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(GE)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(GE)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][FE]
+#
+#	Fighting Air units
+# ****************************************
+[SAI_ROE][CR][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][FE]
+#
+#	Transport units
+# ****************************************
+[SAI_ROE][CR][(A)(TYPE)(EQ)(TR)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(TR)(DIS)(GE)(3)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AT)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AT)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(HE)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(HE)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(TK)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(TK)(DIS)(GT)(2)][FE]
+#
+#	Surface Ship units
+# ****************************************
+[SAI_ROE][CR][(A)(TYPE)(EQ)(PB)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(PB)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(DE)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(DE)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AC)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AC)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(CR)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(CR)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(BB)(DIS)(LE)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(BB)(DIS)(GT)(2)][EV]
+#
+#	Subs
+# ***************************************
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SU)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SU)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SS)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SS)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SD)(DIS)(LE)(2)][NA]
+#
+#	Land & Sea installations
+# ****************************************
+[SAI_ROE][CR][(A)(TYPE)(EQ)(PT)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(PT)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(OF)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(OF)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(AB)(PB)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(AB)(PB)(DIS)(GT)(2)][FE]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SP)(DIS)(LE)(2)][ME]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SP)(DIS)(GT)(2)][FE]
+#
+#	Space & Rockets
+# ***************************************
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SC)(DIS)(LE)(2)][NA]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(AS)(DIS)(LE)(2)][NA]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SM)(DIS)(LE)(2)][EV]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(LM)(DIS)(LE)(2)][EV]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(SN)(DIS)(LE)(2)][EV]
+[SAI_ROE][CR][(A)(TYPE)(EQ)(LN)(DIS)(LE)(2)][EV]
+
+[SAI_ROE_PRI][CR][TR][99]
+[SAI_ROE_PRI][CR][AT][90]
+[SAI_ROE_PRI][CR][HE][90]
+[SAI_ROE_PRI][CR][TK][90]
+[SAI_ROE_PRI][CR][GE][80]
+[SAI_ROE_PRI][CR][OF][80]
+[SAI_ROE_PRI][CR][AR][70]
+[SAI_ROE_PRI][CR][IN][70]
+[SAI_ROE_PRI][CR][CR][60]
+[SAI_ROE_PRI][CR][SB][50]
+[SAI_ROE_PRI][CR][EN][40]
+[SAI_ROE_DEF][CR][FE]
+
+#////////////////////////////////////////////////
+#		Aircraft Carrier
+#////////////////////////////////////////////////
+[SAI_ROE][AC][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][AC][(O)(TYPE)(EQ)(FI)(TYPE)(EQ)(BO)][NA]
+[SAI_ROE][AC][(O)(TYPE)(EQ)(BB)(TYPE)(EQ)(CR)(TYPE)(EQ)(SS)][EV]
+
+# ****************************************
+#	<TR>	Sea Transport
+# ****************************************
+[SAI_ROE][TR][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(TR)(UNIT)(EQ)(F)][ME]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(C1)(PLY)(EQ)(NEUT)][NA]
+#	[SAI_ROE][TR][(A)(HOST)(EQ)(T)][NA]
+#
+#	Fighting land units
+#
+[SAI_ROE][TR][(A)(TYPE)(EQ)(AA)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(AR)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(IN)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(LA)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(GE)(DIS)(LE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SB)(DIS)(LE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(EN)(DIS)(LE)(1)][NA]
+#
+#	Fighting Air units
+#
+[SAI_ROE][TR][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][EV]
+#
+#	Transport units
+#
+[SAI_ROE][TR][(A)(TYPE)(EQ)(TR)(DIS)(LE)(1)][ME]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(AT)(DIS)(LE)(1)][ME]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(HE)(DIS)(LE)(1)][ME]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(TK)(DIS)(LE)(1)][ME]
+#
+#	Surface Ship units
+#
+[SAI_ROE][TR][(A)(TYPE)(EQ)(PB)(DIS)(GE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(DE)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(CR)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(AC)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(BB)(DIS)(LE)(1)][EV]
+#
+#	Subs
+#
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SU)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SS)(DIS)(LE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SD)(DIS)(GE)(1)][NA]
+#
+#	Land & Sea installations
+#
+[SAI_ROE][TR][(A)(TYPE)(EQ)(HA)(DIS)(GE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(PT)(DIS)(GE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(FT)(DIS)(GE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(AB)(DIS)(GE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SP)(DIS)(GE)(1)][NA]
+#
+#	Space & Rockets
+#
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SC)(DIS)(GE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(AS)(DIS)(GE)(1)][NA]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SM)(DIS)(GE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(LM)(DIS)(GE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(SN)(DIS)(GE)(1)][EV]
+[SAI_ROE][TR][(A)(TYPE)(EQ)(LN)(DIS)(GE)(1)][EV]
+
+[SAI_ROE_DEF][TR][NA]
+
+#////////////////////////////////////////////////
+#		Surfaced Submarine
+#////////////////////////////////////////////////
+[SAI_ROE][SU][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)(LVL)(NE)(SB)][NA]
+[SAI_ROE][SU][(A)(DMG)(GT)(0)][NA]
+[SAI_ROE][SU][(O)(TYPE)(EQ)(CI)(TYPE)(EQ)(FT)][NA]
+[SAI_ROE][SU][(O)(TYPE)(EQ)(FI)(TYPE)(EQ)(BO)][NA]
+[SAI_ROE][SU][(A)(TYPE)(EQ)(BB)][EV]
+[SAI_ROE][SU][(A)(TYPE)(EQ)(CR)][EV]
+[SAI_ROE_DEF][SU][ME]
+
+# ****************************************
+#	<SS>	Submerged Submarine
+# ****************************************
+[SAI_ROE][SS][(A)(LVL)(NE)(OF)(LVL)(NE)(GR)(LVL)(NE)(SB)][NA]
+[SAI_ROE][SS][(O)(TYPE)(EQ)(CI)(TYPE)(EQ)(FT)(TYPE)(EQ)(PT)][NA]
+#
+#	Fighting land units
+# ****************************************
+[SAI_ROE][SS][(A)(TYPE)(EQ)(AA)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(AR)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(IN)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(HA)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(LA)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(GE)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SB)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(EN)(DIS)(GE)(1)][NA]
+#
+#	Fighting Air units
+# ****************************************
+[SAI_ROE][SS][(A)(TYPE)(EQ)(FI)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(BO)(DIS)(GE)(1)][NA]
+#
+#	Transport units
+# ****************************************
+[SAI_ROE][SS][(A)(TYPE)(EQ)(TR)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(AT)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(HE)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(TK)(DIS)(GE)(1)][ME]
+#
+#	Surface Ship units
+# ****************************************
+[SAI_ROE][SS][(A)(TYPE)(EQ)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(DE)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(AC)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(CR)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(BB)(DIS)(GE)(1)][ME]
+#
+#	Subs
+# ***************************************
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SS)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SU)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SD)(DIS)(GE)(1)][ME]
+#
+#	Land & Sea installations
+# ****************************************
+[SAI_ROE][SS][(A)(TYPE)(EQ)(PT)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(OF)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(AB)(PB)(DIS)(GE)(1)][ME]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SP)(DIS)(GE)(1)][ME]
+#
+#	Space & Rockets
+# ***************************************
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SC)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(AS)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SM)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(LM)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(SN)(DIS)(GE)(1)][NA]
+[SAI_ROE][SS][(A)(TYPE)(EQ)(LN)(DIS)(GE)(1)][NA]
+
+[SAI_ROE_PRI][SS][TR][99]
+[SAI_ROE_PRI][SS][AT][90]
+[SAI_ROE_PRI][SS][HE][90]
+[SAI_ROE_PRI][SS][TK][90]
+[SAI_ROE_PRI][SS][OF][80]
+[SAI_ROE_PRI][SS][SS][70]
+[SAI_ROE_PRI][SS][SU][70]
+[SAI_ROE_PRI][SS][SD][70]
+[SAI_ROE_PRI][SS][SB][60]
+[SAI_ROE_PRI][SS][EN][60]
+
+[SAI_ROE_DEF][SS][ME]
+
+#////////////////////////////////////////////////
+#	<SD>	Deep Submarine
+#////////////////////////////////////////////////
+[SAI_ROE][SD][(O)(TYPE)(EQ)(DE)(TYPE)(EQ)(SS)(TYPE)(EQ)(SU)][EV]
+#////////////////////////////////////////////////
+
+#////////////////////////////////////////////////
+#	<SC>	Scout Satellite
+#////////////////////////////////////////////////
+[SAI_ROE][SC][(A)(LVL)(NE)(OB)(LVL)(NE)(RE)][NA]
+[SAI_ROE][SC][(A)(TYPE)(EQ)(AS)(DIS)(LE)(1)][ME]
+[SAI_ROE][SC][(A)(TYPE)(EQ)(SC)(DIS)(LE)(1)][ME]
+[SAI_ROE][SC][(A)(TYPE)(EQ)(LM)(DIS)(LE)(1)][ME]
+[SAI_ROE][SC][(A)(TYPE)(EQ)(SM)(DIS)(LE)(1)][ME]
+[SAI_ROE][SC][(A)(TYPE)(EQ)(LN)][ME]
+[SAI_ROE][SC][(A)(TYPE)(EQ)(SN)][ME]
+[SAI_ROE][SC][(A)(TYPE)(EQ)(AS)(DIS)(GT)(1)][EV]
+#////////////////////////////////////////////////
+
+#////////////////////////////////////////////////
+#	<AS>	Armed Satellite
+#////////////////////////////////////////////////
+[SAI_ROE][AS][(A)(LVL)(NE)(OB)(LVL)(NE)(RE)][NA]
+[SAI_ROE][AS][(A)(TYPE)(EQ)(AS)][FE]
+[SAI_ROE][AS][(A)(TYPE)(EQ)(SC)][FE]
+[SAI_ROE][AS][(A)(TYPE)(EQ)(LM)][FE]
+[SAI_ROE][AS][(A)(TYPE)(EQ)(SM)][FE]
+[SAI_ROE][AS][(A)(TYPE)(EQ)(LN)][FE]
+[SAI_ROE][AS][(A)(TYPE)(EQ)(SN)][FE]
+
+[SAI_ROE_DEF][AS][FE]
+
+# ****************************************
+# EDCE - Reference Unit List - Tot 34 Units in game (morphing?)
+# ****************************************
+#	<AA>	Anti-Air
+#	<AC>	Aircraft Carrier
+#	<AT>	Air Transport
+#	<AR>	ARMOR
+#	<AS>	Armed Satellite
+#	<BB>	Battleship
+#	<BO>	BOMBER
+#	<CI>	City
+#	<CR>	Cruiser
+#	<DE>	Destroyer
+#	<EN>	Engineer
+#	<FI>	FIGHTER
+#	<FT>	FORT - Bunker
+#	<GE>	General
+#	<HA>	Heavy Artillery
+#	<IN>	INFANTRY
+#	<HE>	Helicopter
+#	<LA>	Light Artillery
+#	<LM>	Long Range missile
+#	<LN>	Long Range Nuke missile
+#	<PB>	Patrol Boat
+#	<PT>	Port Facility
+#	<AB>	AIR_BASE
+#	<OF>	FACTORY or Offshore platform
+#	<SB>	Sea Bees
+#	<SC>	Scout Satellite
+#	<SD>	Deep Submarine
+#	<SM>	Short Range missile
+#	<SN>	Short Range Nuke missile
+#	<SP>	Supply Unit Canister
+#	<SS>	Submerged Submarine
+#	<SU>	Surfaced Submarine
+#	<TK>	Truck
+#	<TR>	Transport
+# ****************************************
+#Nothing ROE-wise  for
+#PT
+#FT
+#CI
+#AB
+#OF
+#SP
+#SM
+#LM
+#SN
+#LN
